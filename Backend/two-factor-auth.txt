@@ -1,0 +1,91 @@
+// src/components/auth/TwoFactorAuth.js
+import React from 'react';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Container,
+  TextField,
+  Typography,
+  Alert,
+  InputAdornment
+} from '@mui/material';
+import { LockClock } from '@mui/icons-material';
+
+const TwoFactorAuth = ({ email, onSubmit, code, onChange, loading, error }) => {
+  return (
+    <Container maxWidth="sm">
+      <Box py={4}>
+        <Card>
+          <CardContent>
+            <Box mb={3} textAlign="center">
+              <Typography variant="h4" component="h1" gutterBottom>
+                Two-Factor Authentication
+              </Typography>
+              <Typography variant="body1" color="textSecondary">
+                Enter the verification code from your authenticator app
+              </Typography>
+            </Box>
+            
+            {error && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {error}
+              </Alert>
+            )}
+            
+            <Box mb={2} textAlign="center">
+              <Typography variant="body2" color="textSecondary">
+                A verification code has been sent to your authenticator app.
+                Please enter the code to continue.
+              </Typography>
+            </Box>
+            
+            <form onSubmit={onSubmit}>
+              <Box mb={3}>
+                <TextField
+                  label="Verification Code"
+                  placeholder="123456"
+                  fullWidth
+                  value={code}
+                  onChange={(e) => onChange(e.target.value)}
+                  inputProps={{ maxLength: 6, inputMode: 'numeric', pattern: '[0-9]*' }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <LockClock />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
+              
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                size="large"
+                fullWidth
+                disabled={loading || code.length !== 6}
+              >
+                {loading ? <CircularProgress size={24} /> : 'Verify'}
+              </Button>
+            </form>
+            
+            <Box mt={3} textAlign="center">
+              <Typography variant="body2" color="textSecondary">
+                The verification code expires in 5 minutes.
+              </Typography>
+              <Typography variant="body2" color="textSecondary" mt={1}>
+                Verification for: {email}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+    </Container>
+  );
+};
+
+export default TwoFactorAuth;

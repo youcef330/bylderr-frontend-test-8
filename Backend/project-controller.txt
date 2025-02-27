@@ -1,0 +1,662 @@
+// controllers/projectController.js - Project controller
+const path = require('path');
+const Project = require('../models/Project');
+const User = require('../models/User');
+const asyncHandler = require('../middleware/async');
+const ErrorResponse = require('../utils/errorResponse');
+const geocoder = require('../utils/geocoder');
+
+// @desc    Get all projects
+// @route   GET /api/projects
+// @access  Public
+exports.getProjects = asyncHandler(async (req, res, next) => {
+  res.status(200).json(res.advancedResults);
+});
+
+// @desc    Get single project
+// @route   GET /api/projects/:id
+// @access  Public
+exports.getProject = asyncHandler(async (req, res, next) => {
+  const project = await Project.findById(req.params.id)
+    .populate({
+      path: 'owner',
+      select: 'firstName lastName email avatar'
+    })
+    .populate({
+      path: 'investments',
+      select: 'amount status createdAt'
+    });
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Increment view count
+  project.metrics.views += 1;
+  await project.save({ validateBeforeSave: false });
+
+  res.status(200).json({
+    success: true,
+    data: project
+  });
+});
+
+// @desc    Create new project
+// @route   POST /api/projects
+// @access  Private
+exports.createProject = asyncHandler(async (req, res, next) => {
+  // Add user to req.body
+  req.body.owner = req.user.id;
+
+  // Check if user is an admin or manager
+  if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+    return next(
+      new ErrorResponse('Only admins and managers can create projects', 403)
+    );
+  }
+
+  // Process location if provided
+  if (req.body.address) {
+    const loc = await geocoder.geocode(req.body.address);
+    req.body.location = {
+      type: 'Point',
+      coordinates: [loc[0].longitude, loc[0].latitude],
+      formattedAddress: loc[0].formattedAddress,
+      street: loc[0].streetName,
+      city: loc[0].city,
+      state: loc[0].stateCode,
+      zipcode: loc[0].zipcode,
+      country: loc[0].countryCode
+    };
+  }
+
+  const project = await Project.create(req.body);
+
+  res.status(201).json({
+    success: true,
+    data: project
+  });
+});
+
+// @desc    Update project
+// @route   PUT /api/projects/:id
+// @access  Private
+exports.updateProject = asyncHandler(async (req, res, next) => {
+  let project = await Project.findById(req.params.id);
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Make sure user is project owner or admin
+  if (
+    project.owner.toString() !== req.user.id &&
+    req.user.role !== 'admin'
+  ) {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to update this project`,
+        403
+      )
+    );
+  }
+
+  // Process location if provided
+  if (req.body.address) {
+    const loc = await geocoder.geocode(req.body.address);
+    req.body.location = {
+      type: 'Point',
+      coordinates: [loc[0].longitude, loc[0].latitude],
+      formattedAddress: loc[0].formattedAddress,
+      street: loc[0].streetName,
+      city: loc[0].city,
+      state: loc[0].stateCode,
+      zipcode: loc[0].zipcode,
+      country: loc[0].countryCode
+    };
+  }
+
+  project = await Project.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true
+  });
+
+  res.status(200).json({
+    success: true,
+    data: project
+  });
+});
+
+// @desc    Delete project
+// @route   DELETE /api/projects/:id
+// @access  Private
+exports.deleteProject = asyncHandler(async (req, res, next) => {
+  const project = await Project.findById(req.params.id);
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Make sure user is project owner or admin
+  if (
+    project.owner.toString() !== req.user.id &&
+    req.user.role !== 'admin'
+  ) {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to delete this project`,
+        403
+      )
+    );
+  }
+
+  await project.remove();
+
+  res.status(200).json({
+    success: true,
+    data: {}
+  });
+});
+
+// @desc    Upload project images
+// @route   PUT /api/projects/:id/images
+// @access  Private
+exports.projectImageUpload = asyncHandler(async (req, res, next) => {
+  const project = await Project.findById(req.params.id);
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Make sure user is project owner or admin
+  if (
+    project.owner.toString() !== req.user.id &&
+    req.user.role !== 'admin'
+  ) {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to update this project`,
+        403
+      )
+    );
+  }
+
+  if (!req.files) {
+    return next(new ErrorResponse(`Please upload a file`, 400));
+  }
+
+  const files = Array.isArray(req.files) ? req.files : [req.files.file];
+
+  // Make sure the image is a photo
+  for (let file of files) {
+    if (!file.mimetype.startsWith('image')) {
+      return next(new ErrorResponse(`Please upload an image file`, 400));
+    }
+
+    // Check filesize
+    if (file.size > process.env.MAX_FILE_UPLOAD) {
+      return next(
+        new ErrorResponse(
+          `Please upload an image less than ${process.env.MAX_FILE_UPLOAD / 1000000}MB`,
+          400
+        )
+      );
+    }
+
+    // Create custom filename
+    file.name = `project_photo_${project._id}${path.parse(file.name).ext}`;
+
+    // Move file to upload path
+    file.mv(`${process.env.FILE_UPLOAD_PATH}/${file.name}`, async err => {
+      if (err) {
+        console.error(err);
+        return next(new ErrorResponse(`Problem with file upload`, 500));
+      }
+    });
+
+    // Add file to project images array
+    project.images.push(file.name);
+  }
+
+  await project.save();
+
+  res.status(200).json({
+    success: true,
+    data: project
+  });
+});
+
+// @desc    Add project update
+// @route   POST /api/projects/:id/updates
+// @access  Private
+exports.addProjectUpdate = asyncHandler(async (req, res, next) => {
+  const { title, content } = req.body;
+
+  const project = await Project.findById(req.params.id);
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Make sure user is project owner or admin
+  if (
+    project.owner.toString() !== req.user.id &&
+    req.user.role !== 'admin'
+  ) {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to update this project`,
+        403
+      )
+    );
+  }
+
+  project.updates.unshift({
+    title,
+    content,
+    author: req.user.id
+  });
+
+  await project.save();
+
+  res.status(200).json({
+    success: true,
+    data: project.updates
+  });
+});
+
+// @desc    Add project to favorites
+// @route   POST /api/projects/:id/favorite
+// @access  Private
+exports.addToFavorites = asyncHandler(async (req, res, next) => {
+  const project = await Project.findById(req.params.id);
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  const user = await User.findById(req.user.id);
+
+  // Check if already in favorites
+  if (user.favoriteProjects && user.favoriteProjects.includes(project._id)) {
+    return next(
+      new ErrorResponse('Project already in favorites', 400)
+    );
+  }
+
+  // Add to user's favorites
+  if (!user.favoriteProjects) {
+    user.favoriteProjects = [];
+  }
+  
+  user.favoriteProjects.push(project._id);
+  await user.save();
+
+  // Increment project favorites count
+  project.metrics.favorites += 1;
+  await project.save();
+
+  res.status(200).json({
+    success: true,
+    data: {}
+  });
+});
+
+// @desc    Remove project from favorites
+// @route   DELETE /api/projects/:id/favorite
+// @access  Private
+exports.removeFromFavorites = asyncHandler(async (req, res, next) => {
+  const project = await Project.findById(req.params.id);
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  const user = await User.findById(req.user.id);
+
+  // Check if in favorites
+  if (!user.favoriteProjects || !user.favoriteProjects.includes(project._id)) {
+    return next(
+      new ErrorResponse('Project not in favorites', 400)
+    );
+  }
+
+  // Remove from user's favorites
+  user.favoriteProjects = user.favoriteProjects.filter(
+    id => id.toString() !== project._id.toString()
+  );
+  
+  await user.save();
+
+  // Decrement project favorites count
+  project.metrics.favorites -= 1;
+  await project.save();
+
+  res.status(200).json({
+    success: true,
+    data: {}
+  });
+});
+
+// controllers/investmentController.js - Investment controller
+const Investment = require('../models/Investment');
+const Project = require('../models/Project');
+const User = require('../models/User');
+const asyncHandler = require('../middleware/async');
+const ErrorResponse = require('../utils/errorResponse');
+const paymentService = require('../services/paymentService');
+
+// @desc    Get all investments
+// @route   GET /api/investments
+// @access  Private/Admin
+exports.getInvestments = asyncHandler(async (req, res, next) => {
+  res.status(200).json(res.advancedResults);
+});
+
+// @desc    Get single investment
+// @route   GET /api/investments/:id
+// @access  Private
+exports.getInvestment = asyncHandler(async (req, res, next) => {
+  const investment = await Investment.findById(req.params.id)
+    .populate({
+      path: 'project',
+      select: 'title description fundingGoal fundingRaised status'
+    })
+    .populate({
+      path: 'investor',
+      select: 'firstName lastName email'
+    });
+
+  if (!investment) {
+    return next(
+      new ErrorResponse(`Investment not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Make sure user is investment owner or admin
+  if (
+    investment.investor._id.toString() !== req.user.id &&
+    req.user.role !== 'admin'
+  ) {
+    return next(
+      new ErrorResponse('Not authorized to access this investment', 403)
+    );
+  }
+
+  res.status(200).json({
+    success: true,
+    data: investment
+  });
+});
+
+// @desc    Get investments for a project
+// @route   GET /api/projects/:projectId/investments
+// @access  Private/Admin/ProjectOwner
+exports.getProjectInvestments = asyncHandler(async (req, res, next) => {
+  const project = await Project.findById(req.params.projectId);
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.projectId}`, 404)
+    );
+  }
+
+  // Make sure user is project owner or admin
+  if (
+    project.owner.toString() !== req.user.id &&
+    req.user.role !== 'admin'
+  ) {
+    return next(
+      new ErrorResponse('Not authorized to access these investments', 403)
+    );
+  }
+
+  const investments = await Investment.find({ project: req.params.projectId })
+    .populate({
+      path: 'investor',
+      select: 'firstName lastName email'
+    });
+
+  res.status(200).json({
+    success: true,
+    count: investments.length,
+    data: investments
+  });
+});
+
+// @desc    Get investments for current user
+// @route   GET /api/investments/me
+// @access  Private
+exports.getMyInvestments = asyncHandler(async (req, res, next) => {
+  const investments = await Investment.find({ investor: req.user.id })
+    .populate({
+      path: 'project',
+      select: 'title description status fundingGoal fundingRaised fundingDeadline expectedReturn risk'
+    });
+
+  res.status(200).json({
+    success: true,
+    count: investments.length,
+    data: investments
+  });
+});
+
+// @desc    Create new investment
+// @route   POST /api/projects/:projectId/investments
+// @access  Private
+exports.createInvestment = asyncHandler(async (req, res, next) => {
+  // Add user and project to req.body
+  req.body.investor = req.user.id;
+  req.body.project = req.params.projectId;
+
+  const project = await Project.findById(req.params.projectId);
+
+  if (!project) {
+    return next(
+      new ErrorResponse(`Project not found with id of ${req.params.projectId}`, 404)
+    );
+  }
+
+  // Check if project is active and accepting investments
+  if (project.status !== 'active') {
+    return next(
+      new ErrorResponse(`Project is not currently accepting investments`, 400)
+    );
+  }
+
+  // Check if funding deadline has passed
+  if (new Date() > project.fundingDeadline) {
+    return next(
+      new ErrorResponse(`Funding deadline has passed`, 400)
+    );
+  }
+
+  // Check if minimum investment is met
+  if (req.body.amount < project.minInvestment) {
+    return next(
+      new ErrorResponse(
+        `Minimum investment amount is ${project.minInvestment}`,
+        400
+      )
+    );
+  }
+
+  // Check if accredited investor only and user is accredited
+  if (
+    project.accreditedOnly &&
+    (!req.user.investorProfile || req.user.investorProfile.accreditedStatus !== 'accredited')
+  ) {
+    return next(
+      new ErrorResponse(
+        `This project is only available to accredited investors`,
+        403
+      )
+    );
+  }
+
+  // Process payment
+  let paymentResult;
+  
+  try {
+    paymentResult = await paymentService.processPayment({
+      amount: req.body.amount,
+      paymentMethod: req.body.paymentMethod,
+      paymentDetails: req.body.paymentDetails,
+      user: req.user,
+      project: project
+    });
+    
+    // Add payment ID and fees to investment
+    req.body.paymentId = paymentResult.paymentId;
+    req.body.transactionFee = paymentResult.fee;
+    
+    // Mark as completed if payment successful
+    if (paymentResult.status === 'succeeded') {
+      req.body.status = 'completed';
+    }
+  } catch (err) {
+    return next(
+      new ErrorResponse(`Payment processing failed: ${err.message}`, 400)
+    );
+  }
+
+  // Create investment
+  const investment = await Investment.create(req.body);
+
+  // Update project funding
+  const totalFunded = await Investment.aggregate([
+    {
+      $match: { project: project._id, status: 'completed' }
+    },
+    {
+      $group: {
+        _id: '$project',
+        totalFunding: { $sum: '$amount' }
+      }
+    }
+  ]);
+
+  if (totalFunded.length > 0) {
+    project.fundingRaised = totalFunded[0].totalFunding;
+  }
+
+  // Check if funding goal is reached
+  if (project.fundingRaised >= project.fundingGoal) {
+    project.status = 'funded';
+  }
+  
+  await project.save();
+
+  res.status(201).json({
+    success: true,
+    data: investment
+  });
+});
+
+// @desc    Update investment
+// @route   PUT /api/investments/:id
+// @access  Private/Admin
+exports.updateInvestment = asyncHandler(async (req, res, next) => {
+  let investment = await Investment.findById(req.params.id);
+
+  if (!investment) {
+    return next(
+      new ErrorResponse(`Investment not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Only admin can update investments
+  if (req.user.role !== 'admin') {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to update this investment`,
+        403
+      )
+    );
+  }
+
+  investment = await Investment.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true
+  });
+
+  res.status(200).json({
+    success: true,
+    data: investment
+  });
+});
+
+// @desc    Cancel investment
+// @route   PUT /api/investments/:id/cancel
+// @access  Private
+exports.cancelInvestment = asyncHandler(async (req, res, next) => {
+  const investment = await Investment.findById(req.params.id);
+
+  if (!investment) {
+    return next(
+      new ErrorResponse(`Investment not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Make sure user is investment owner or admin
+  if (
+    investment.investor.toString() !== req.user.id &&
+    req.user.role !== 'admin'
+  ) {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to cancel this investment`,
+        403
+      )
+    );
+  }
+
+  // Check if investment can be cancelled
+  if (investment.status !== 'pending') {
+    return next(
+      new ErrorResponse(`Only pending investments can be cancelled`, 400)
+    );
+  }
+
+  // Process refund if necessary
+  if (investment.paymentId) {
+    try {
+      await paymentService.processRefund({
+        paymentId: investment.paymentId,
+        amount: investment.amount
+      });
+    } catch (err) {
+      return next(
+        new ErrorResponse(`Refund processing failed: ${err.message}`, 400)
+      );
+    }
+  }
+
+  // Update investment status
+  investment.status = 'cancelled';
+  await investment.save();
+
+  // Update project funding amount
+  const project = await Project.findById(investment.project);
+  project.fundingRaised -= investment.amount;
+  await project.save();
+
+  res.status(200).json({
+    success: true,
+    data: investment
+  });
+}

@@ -1,0 +1,63 @@
+# Bylderr Platform Backend
+
+## Project Structure
+```
+bylderr-backend/
+├── config/
+│   ├── config.js               # Configuration variables
+│   ├── db.js                   # Database connection setup
+│   └── passport.js             # Authentication strategies
+├── controllers/
+│   ├── authController.js       # Authentication logic
+│   ├── userController.js       # User management
+│   ├── projectController.js    # Project listings and details
+│   ├── investmentController.js # Investment handling
+│   ├── analyticsController.js  # Dashboard analytics
+│   ├── messageController.js    # Communication
+│   └── documentController.js   # File uploads and management
+├── middleware/
+│   ├── auth.js                 # Authentication middleware
+│   ├── errorHandler.js         # Global error handling
+│   ├── validation.js           # Input validation
+│   └── upload.js               # File upload handling
+├── models/
+│   ├── User.js                 # User model (investor, admin)
+│   ├── Project.js              # Investment projects
+│   ├── Investment.js           # Investment transactions
+│   ├── Message.js              # Communication
+│   ├── Notification.js         # System notifications
+│   ├── Document.js             # Uploaded documents
+│   └── Analytics.js            # Performance metrics
+├── routes/
+│   ├── authRoutes.js           # Authentication endpoints
+│   ├── userRoutes.js           # User management endpoints
+│   ├── projectRoutes.js        # Project endpoints
+│   ├── investmentRoutes.js     # Investment endpoints
+│   ├── analyticsRoutes.js      # Analytics endpoints
+│   ├── messageRoutes.js        # Communication endpoints
+│   └── documentRoutes.js       # Document management endpoints
+├── services/
+│   ├── emailService.js         # Email notifications
+│   ├── paymentService.js       # Payment processing
+│   ├── analyticsService.js     # Data analysis
+│   └── storageService.js       # File storage
+├── utils/
+│   ├── validators.js           # Custom validators
+│   ├── formatters.js           # Data formatters
+│   ├── helpers.js              # Helper functions
+│   └── constants.js            # App constants
+├── .env                        # Environment variables
+├── .gitignore                  # Git ignore file
+├── app.js                      # Express app setup
+├── server.js                   # Server entry point
+├── package.json                # Dependencies
+└── README.md                   # Project documentation
+```
+
+## Technology Stack
+- **Server**: Node.js with Express.js
+- **Database**: MongoDB with Mongoose ORM
+- **Authentication**: JWT (JSON Web Tokens)
+- **File Storage**: AWS S3 or similar cloud storage
+- **Deployment**: Docker and Kubernetes
+- **API Documentation**: Swagger/OpenAPI

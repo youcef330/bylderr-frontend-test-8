@@ -1,0 +1,391 @@
+// utils/errorResponse.js - Custom error response class
+class ErrorResponse extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.statusCode = statusCode;
+  }
+}
+
+module.exports = ErrorResponse;
+
+// utils/geocoder.js - Geocoding service
+const NodeGeocoder = require('node-geocoder');
+
+const options = {
+  provider: process.env.GEOCODER_PROVIDER || 'mapquest',
+  httpAdapter: 'https',
+  apiKey: process.env.GEOCODER_API_KEY,
+  formatter: null
+};
+
+const geocoder = NodeGeocoder(options);
+
+module.exports = geocoder;
+
+// utils/validators.js - Custom validators
+const validator = require('validator');
+
+/**
+ * Validate a URL
+ * @param {String} url - URL to validate
+ * @returns {Boolean} - True if valid, false otherwise
+ */
+exports.isValidUrl = (url) => {
+  return validator.isURL(url, {
+    protocols: ['http', 'https'],
+    require_protocol: true
+  });
+};
+
+/**
+ * Validate a password strength
+ * @param {String} password - Password to validate
+ * @returns {Object} - Validation result with strength score and message
+ */
+exports.validatePasswordStrength = (password) => {
+  let strength = 0;
+  let message = '';
+
+  // Length check
+  if (password.length >= 8) strength += 1;
+  if (password.length >= 12) strength += 1;
+
+  // Complexity checks
+  if (/[A-Z]/.test(password)) strength += 1; // Uppercase
+  if (/[a-z]/.test(password)) strength += 1; // Lowercase
+  if (/[0-9]/.test(password)) strength += 1; // Numbers
+  if (/[\W_]/.test(password)) strength += 1; // Special chars
+
+  // Determine message based on strength
+  if (strength < 3) {
+    message = 'Password is too weak';
+  } else if (strength < 5) {
+    message = 'Password is moderate';
+  } else {
+    message = 'Password is strong';
+  }
+
+  return {
+    strength,
+    message,
+    isValid: strength >= 3 // Consider valid if strength is at least 3
+  };
+};
+
+/**
+ * Validate an email
+ * @param {String} email - Email to validate
+ * @returns {Boolean} - True if valid, false otherwise
+ */
+exports.isValidEmail = (email) => {
+  return validator.isEmail(email);
+};
+
+/**
+ * Validate a phone number
+ * @param {String} phone - Phone number to validate
+ * @returns {Boolean} - True if valid, false otherwise
+ */
+exports.isValidPhone = (phone) => {
+  return validator.isMobilePhone(phone, 'any');
+};
+
+// utils/formatters.js - Data formatters
+
+/**
+ * Format currency
+ * @param {Number} amount - Amount to format
+ * @param {String} currency - Currency code (default: USD)
+ * @returns {String} - Formatted currency string
+ */
+exports.formatCurrency = (amount, currency = 'USD') => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency
+  }).format(amount);
+};
+
+/**
+ * Format date
+ * @param {Date|String} date - Date to format
+ * @param {String} format - Format type ('short', 'long', 'relative')
+ * @returns {String} - Formatted date string
+ */
+exports.formatDate = (date, format = 'short') => {
+  const dateObj = new Date(date);
+  
+  if (format === 'short') {
+    return dateObj.toLocaleDateString('en-US');
+  } else if (format === 'long') {
+    return dateObj.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } else if (format === 'relative') {
+    const now = new Date();
+    const diffTime = Math.abs(now - dateObj);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'Today';
+    } else if (diffDays === 1) {
+      return 'Yesterday';
+    } else if (diffDays < 7) {
+      return `${diffDays} days ago`;
+    } else if (diffDays < 30) {
+      return `${Math.floor(diffDays / 7)} weeks ago`;
+    } else if (diffDays < 365) {
+      return `${Math.floor(diffDays / 30)} months ago`;
+    } else {
+      return `${Math.floor(diffDays / 365)} years ago`;
+    }
+  }
+  
+  return date.toString();
+};
+
+// utils/helpers.js - General helper functions
+
+/**
+ * Generate a random string
+ * @param {Number} length - Length of the string
+ * @returns {String} - Random string
+ */
+exports.generateRandomString = (length = 10) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  
+  return result;
+};
+
+/**
+ * Paginate array
+ * @param {Array} items - Array to paginate
+ * @param {Number} page - Page number (default: 1)
+ * @param {Number} perPage - Items per page (default: 10)
+ * @returns {Object} - Paginated result
+ */
+exports.paginateArray = (items, page = 1, perPage = 10) => {
+  const offset = perPage * (page - 1);
+  const totalPages = Math.ceil(items.length / perPage);
+  const paginatedItems = items.slice(offset, perPage * page);
+  
+  return {
+    page,
+    perPage,
+    total: items.length,
+    totalPages,
+    data: paginatedItems
+  };
+};
+
+/**
+ * Calculate investment metrics
+ * @param {Number} amount - Investment amount
+ * @param {Number} returnRate - Annual return rate (%)
+ * @param {Number} duration - Investment duration in months
+ * @returns {Object} - Investment metrics
+ */
+exports.calculateInvestmentMetrics = (amount, returnRate, duration) => {
+  // Convert annual rate to monthly
+  const monthlyRate = returnRate / 100 / 12;
+  
+  // Calculate total return for entire duration
+  const totalReturn = amount * (1 + monthlyRate * duration);
+  
+  // Calculate profit
+  const profit = totalReturn - amount;
+  
+  // Calculate ROI
+  const roi = (profit / amount) * 100;
+  
+  return {
+    initialInvestment: amount,
+    totalReturn: totalReturn,
+    profit: profit,
+    roi: roi,
+    monthlyRate: monthlyRate * 100, // Convert back to percentage
+    duration: duration
+  };
+};
+
+// utils/constants.js - Application constants
+
+/**
+ * User roles
+ */
+exports.USER_ROLES = {
+  INVESTOR: 'investor',
+  ADMIN: 'admin',
+  MANAGER: 'manager'
+};
+
+/**
+ * Project statuses
+ */
+exports.PROJECT_STATUSES = {
+  DRAFT: 'draft',
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  FUNDED: 'funded',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+};
+
+/**
+ * Investment statuses
+ */
+exports.INVESTMENT_STATUSES = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  REFUNDED: 'refunded'
+};
+
+/**
+ * Payment methods
+ */
+exports.PAYMENT_METHODS = {
+  BANK_TRANSFER: 'bank_transfer',
+  CREDIT_CARD: 'credit_card',
+  WIRE: 'wire',
+  CRYPTO: 'crypto',
+  OTHER: 'other'
+};
+
+/**
+ * Sectors
+ */
+exports.SECTORS = [
+  'Real Estate',
+  'Technology',
+  'Healthcare',
+  'Finance',
+  'Energy',
+  'Consumer Goods',
+  'Industrial',
+  'Materials',
+  'Utilities',
+  'Other'
+];
+
+/**
+ * Return types
+ */
+exports.RETURN_TYPES = {
+  EQUITY: 'equity',
+  DEBT: 'debt',
+  REVENUE_SHARING: 'revenue-sharing',
+  HYBRID: 'hybrid',
+  OTHER: 'other'
+};
+
+/**
+ * Risk levels
+ */
+exports.RISK_LEVELS = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high'
+};
+
+// utils/advancedResults.js - Middleware for advanced query results
+
+/**
+ * Advanced results middleware for pagination, filtering, and sorting
+ * @param {Model} model - Mongoose model
+ * @param {String|Array} populate - Fields to populate
+ * @returns {Function} - Express middleware
+ */
+const advancedResults = (model, populate) => async (req, res, next) => {
+  let query;
+
+  // Copy req.query
+  const reqQuery = { ...req.query };
+
+  // Fields to exclude from filtering
+  const removeFields = ['select', 'sort', 'page', 'limit'];
+
+  // Remove excluded fields from reqQuery
+  removeFields.forEach(param => delete reqQuery[param]);
+
+  // Create query string
+  let queryStr = JSON.stringify(reqQuery);
+
+  // Create operators ($gt, $gte, etc)
+  queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `${match}`);
+
+  // Finding resource
+  query = model.find(JSON.parse(queryStr));
+
+  // Select fields
+  if (req.query.select) {
+    const fields = req.query.select.split(',').join(' ');
+    query = query.select(fields);
+  }
+
+  // Sort
+  if (req.query.sort) {
+    const sortBy = req.query.sort.split(',').join(' ');
+    query = query.sort(sortBy);
+  } else {
+    query = query.sort('-createdAt');
+  }
+
+  // Pagination
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+  const total = await model.countDocuments(JSON.parse(queryStr));
+
+  query = query.skip(startIndex).limit(limit);
+
+  // Populate
+  if (populate) {
+    if (Array.isArray(populate)) {
+      populate.forEach(item => {
+        query = query.populate(item);
+      });
+    } else {
+      query = query.populate(populate);
+    }
+  }
+
+  // Execute query
+  const results = await query;
+
+  // Pagination result
+  const pagination = {};
+
+  if (endIndex < total) {
+    pagination.next = {
+      page: page + 1,
+      limit
+    };
+  }
+
+  if (startIndex > 0) {
+    pagination.prev = {
+      page: page - 1,
+      limit
+    };
+  }
+
+  res.advancedResults = {
+    success: true,
+    count: results.length,
+    pagination,
+    data: results
+  };
+
+  next();
+};
+
+module.exports = advancedResults;

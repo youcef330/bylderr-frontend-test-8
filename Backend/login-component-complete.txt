@@ -1,0 +1,242 @@
+// src/components/auth/Login.js
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Container,
+  Divider,
+  TextField,
+  Typography,
+  Link,
+  Alert,
+  InputAdornment,
+  IconButton
+} from '@mui/material';
+import {
+  Email,
+  VpnKey,
+  Visibility,
+  VisibilityOff
+} from '@mui/icons-material';
+import { login, verify2FA } from '../../store/slices/authSlice';
+import TwoFactorAuth from './TwoFactorAuth';
+
+const Login = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  const { loading, error, twoFactorRequired } = useSelector(state => state.auth);
+  const { errorMessage } = useSelector(state => state.ui);
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  
+  const [formErrors, setFormErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
+  
+  // Check for redirect URL from location state
+  const redirectPath = location.state?.from?.pathname || '/dashboard';
+  
+  // Auto-navigate if already authenticated
+  const { isAuthenticated } = useSelector(state => state.auth);
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(redirectPath);
+    }
+  }, [isAuthenticated, navigate, redirectPath]);
+  
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevData => ({
+      ...prevData,
+      [name]: value
+    }));
+    
+    // Clear validation error when field is changed
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
+  };
+  
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Email is invalid';
+    }
+    
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    }
+    
+    return errors;
+  };
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    
+    try {
+      await dispatch(login(formData)).unwrap();
+      // If 2FA is not required, user will be redirected automatically
+    } catch (error) {
+      // Error is handled by the authSlice and displayed via UI slice
+    }
+  };
+  
+  const handleTwoFactorSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!twoFactorCode.trim()) {
+      return;
+    }
+    
+    try {
+      await dispatch(verify2FA({
+        email: formData.email,
+        password: formData.password,
+        token: twoFactorCode
+      })).unwrap();
+      
+      navigate(redirectPath);
+    } catch (error) {
+      // Error is handled by the authSlice and displayed via UI slice
+    }
+  };
+  
+  const toggleShowPassword = () => {
+    setShowPassword(prev => !prev);
+  };
+  
+  if (twoFactorRequired) {
+    return (
+      <TwoFactorAuth 
+        email={formData.email}
+        onSubmit={handleTwoFactorSubmit}
+        code={twoFactorCode}
+        onChange={setTwoFactorCode}
+        loading={loading}
+        error={errorMessage || error}
+      />
+    );
+  }
+  
+  return (
+    <Container maxWidth="sm">
+      <Box py={4}>
+        <Card>
+          <CardContent>
+            <Box mb={3} textAlign="center">
+              <Typography variant="h4" component="h1" gutterBottom>
+                Welcome Back
+              </Typography>
+              <Typography variant="body1" color="textSecondary">
+                Sign in to access your account
+              </Typography>
+            </Box>
+            
+            {(errorMessage || error) && (
+              <Alert severity="error" sx={{ mb: 3 }}>
+                {errorMessage || error}
+              </Alert>
+            )}
+            
+            <form onSubmit={handleSubmit}>
+              <Box mb={3}>
+                <TextField
+                  name="email"
+                  label="Email Address"
+                  type="email"
+                  fullWidth
+                  value={formData.email}
+                  onChange={handleChange}
+                  error={!!formErrors.email}
+                  helperText={formErrors.email}
+                  InputProps={{
+                    startAdornment: <Email color="action" sx={{ mr: 1 }} />
+                  }}
+                />
+              </Box>
+              
+              <Box mb={3}>
+                <TextField
+                  name="password"
+                  label="Password"
+                  type={showPassword ? 'text' : 'password'}
+                  fullWidth
+                  value={formData.password}
+                  onChange={handleChange}
+                  error={!!formErrors.password}
+                  helperText={formErrors.password}
+                  InputProps={{
+                    startAdornment: <VpnKey color="action" sx={{ mr: 1 }} />,
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="toggle password visibility"
+                          onClick={toggleShowPassword}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
+              </Box>
+              
+              <Box mb={2} textAlign="right">
+                <Link component={RouterLink} to="/forgot-password" variant="body2">
+                  Forgot your password?
+                </Link>
+              </Box>
+              
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                size="large"
+                fullWidth
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : 'Sign In'}
+              </Button>
+            </form>
+            
+            <Divider sx={{ my: 3 }} />
+            
+            <Box textAlign="center">
+              <Typography variant="body2">
+                Don't have an account?{' '}
+                <Link component={RouterLink} to="/register">
+                  Sign up
+                </Link>
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+    </Container>
+  );
+};
+
+export default Login;

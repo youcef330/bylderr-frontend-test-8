@@ -1,0 +1,208 @@
+// src/config/index.js - Integration configuration
+
+// API configuration
+export const API_CONFIG = {
+  // API base URL - Change this to your backend URL
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+  
+  // API timeout in milliseconds
+  timeout: 15000,
+  
+  // API version
+  version: 'v1',
+  
+  // File upload endpoints
+  fileUpload: {
+    // Maximum file size in bytes (5MB)
+    maxSize: 5 * 1024 * 1024,
+    
+    // Allowed file types for documents
+    allowedDocumentTypes: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
+      'application/zip',
+      'application/x-rar-compressed'
+    ],
+    
+    // Allowed file types for images
+    allowedImageTypes: [
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/svg+xml'
+    ]
+  }
+};
+
+// Authentication configuration
+export const AUTH_CONFIG = {
+  // Token storage keys
+  tokenKey: 'bylderr_auth_token',
+  refreshTokenKey: 'bylderr_refresh_token',
+  userKey: 'bylderr_user',
+  
+  // Token expiration handling
+  refreshBeforeExpiration: 5 * 60 * 1000 // 5 minutes in milliseconds
+};
+
+// User roles
+export const USER_ROLES = {
+  INVESTOR: 'investor',
+  ADMIN: 'admin',
+  MANAGER: 'manager'
+};
+
+// Project statuses
+export const PROJECT_STATUSES = {
+  DRAFT: 'draft',
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  FUNDED: 'funded',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+};
+
+// Investment statuses
+export const INVESTMENT_STATUSES = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  REFUNDED: 'refunded'
+};
+
+// Payment methods
+export const PAYMENT_METHODS = {
+  BANK_TRANSFER: 'bank_transfer',
+  CREDIT_CARD: 'credit_card',
+  WIRE: 'wire',
+  CRYPTO: 'crypto',
+  OTHER: 'other'
+};
+
+// Sectors
+export const SECTORS = [
+  'Real Estate',
+  'Technology',
+  'Healthcare',
+  'Finance',
+  'Energy',
+  'Consumer Goods',
+  'Industrial',
+  'Materials',
+  'Utilities',
+  'Other'
+];
+
+// Return types
+export const RETURN_TYPES = {
+  EQUITY: 'equity',
+  DEBT: 'debt',
+  REVENUE_SHARING: 'revenue-sharing',
+  HYBRID: 'hybrid',
+  OTHER: 'other'
+};
+
+// Risk levels
+export const RISK_LEVELS = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high'
+};
+
+// Route configuration
+export const ROUTES = {
+  // Public routes
+  PUBLIC: {
+    HOME: '/',
+    LOGIN: '/login',
+    REGISTER: '/register',
+    FORGOT_PASSWORD: '/forgot-password',
+    RESET_PASSWORD: '/reset-password/:token',
+    VERIFY_EMAIL: '/verify-email/:token',
+    PROJECTS: '/projects',
+    PROJECT_DETAILS: '/projects/:id',
+    ABOUT: '/about',
+    CONTACT: '/contact',
+    TERMS: '/terms',
+    PRIVACY: '/privacy',
+    FAQ: '/faq'
+  },
+  
+  // Protected routes (require authentication)
+  PROTECTED: {
+    DASHBOARD: '/dashboard',
+    PROFILE: '/profile',
+    INVESTMENTS: '/investments',
+    INVESTMENT_DETAILS: '/investments/:id',
+    DOCUMENTS: '/documents',
+    SETTINGS: '/settings',
+    NOTIFICATIONS: '/notifications',
+    MESSAGES: '/messages'
+  },
+  
+  // Admin routes (require admin role)
+  ADMIN: {
+    ADMIN_DASHBOARD: '/admin/dashboard',
+    USERS: '/admin/users',
+    USER_DETAILS: '/admin/users/:id',
+    PROJECTS_MANAGEMENT: '/admin/projects',
+    PROJECT_EDIT: '/admin/projects/:id/edit',
+    PROJECT_CREATE: '/admin/projects/create',
+    INVESTMENTS_MANAGEMENT: '/admin/investments',
+    ANALYTICS: '/admin/analytics',
+    SETTINGS: '/admin/settings'
+  }
+};
+
+// Frontend integration paths
+export const INTEGRATION_PATHS = {
+  SERVICES: {
+    API: 'src/services/api.js',
+    AUTH: 'src/services/auth.service.js',
+    PROJECT: 'src/services/project.service.js',
+    INVESTMENT: 'src/services/investment.service.js',
+    UPLOAD: 'src/services/upload.service.js',
+    USER: 'src/services/user.service.js'
+  },
+  CONTEXTS: {
+    AUTH: 'src/context/AuthContext.js',
+    PROJECT: 'src/context/ProjectContext.js',
+    USER: 'src/context/UserContext.js'
+  },
+  UTILS: {
+    TOKEN: 'src/utils/token.js',
+    ERROR_HANDLER: 'src/utils/error-handler.js',
+    FORMATTERS: 'src/utils/formatters.js'
+  },
+  COMPONENTS: {
+    PROTECTED_ROUTE: 'src/components/routing/ProtectedRoute.js',
+    ADMIN_ROUTE: 'src/components/routing/AdminRoute.js'
+  }
+};
+
+// Error messages
+export const ERROR_MESSAGES = {
+  NETWORK_ERROR: 'Network error. Please check your internet connection.',
+  SERVER_ERROR: 'Server error. Please try again later.',
+  UNAUTHORIZED: 'You are not authorized to perform this action.',
+  SESSION_EXPIRED: 'Your session has expired. Please login again.',
+  VALIDATION_ERROR: 'Please check your input and try again.',
+  PAYMENT_ERROR: 'Payment processing failed. Please try again.',
+  UPLOAD_ERROR: 'File upload failed. Please try again.'
+};
+
+// Success messages
+export const SUCCESS_MESSAGES = {
+  LOGIN_SUCCESS: 'Login successful!',
+  REGISTER_SUCCESS: 'Registration successful! Please check your email to verify your account.',
+  PROFILE_UPDATE_SUCCESS: 'Profile updated successfully!',
+  PASSWORD_UPDATE_SUCCESS: 'Password updated successfully!',
+  PROJECT_CREATE_SUCCESS: 'Project created successfully!',
+  PROJECT_UPDATE_SUCCESS: 'Project updated successfully!',
+  INVESTMENT_CREATE_SUCCESS: 'Investment created successfully!',
+  DOCUMENT_UPLOAD_SUCCESS: 'Document uploaded successfully!'
+};

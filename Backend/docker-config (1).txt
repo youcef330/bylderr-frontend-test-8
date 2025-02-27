@@ -1,0 +1,77 @@
+# Dockerfile
+FROM node:16-alpine
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Install app dependencies
+COPY package*.json ./
+RUN npm install
+
+# Bundle app source
+COPY . .
+
+# Create uploads directory
+RUN mkdir -p uploads
+
+# Expose port
+EXPOSE 5000
+
+# Set environment variables
+ENV NODE_ENV=production
+
+# Start the server
+CMD ["npm", "start"]
+
+# docker-compose.yml
+version: '3'
+
+services:
+  app:
+    build: .
+    image: bylderr-backend
+    container_name: bylderr-backend
+    restart: always
+    ports:
+      - '5000:5000'
+    env_file: .env
+    volumes:
+      - ./uploads:/usr/src/app/uploads
+    depends_on:
+      - mongo
+    networks:
+      - bylderr-network
+
+  mongo:
+    image: mongo:latest
+    container_name: bylderr-mongo
+    restart: always
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    networks:
+      - bylderr-network
+
+networks:
+  bylderr-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+    driver: local
+
+# .dockerignore
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+README.md
